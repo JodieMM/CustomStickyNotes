@@ -1,0 +1,30 @@
+<Window x:Class="CustomStickyNotes.Views.OverviewWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Sticky Notes — All Notes"
+        Width="380" Height="560"
+        WindowStartupLocation="CenterScreen">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <DockPanel Grid.Row="0" Margin="0,0,0,8">
+            <Button DockPanel.Dock="Right" Content="+ New Note" Padding="8,4" Margin="6,0,0,0" Click="NewNote_Click" />
+            <TextBox x:Name="SearchBox" VerticalContentAlignment="Center" Padding="4" TextChanged="SearchBox_TextChanged" />
+        </DockPanel>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <TextBlock Text="Active Notes" FontWeight="Bold" Margin="0,4,0,4" />
+                <StackPanel x:Name="ActiveListPanel" />
+                <TextBlock x:Name="ActiveEmptyLabel" Text="No active notes" Foreground="Gray" Margin="0,4,0,10" Visibility="Collapsed" />
+
+                <TextBlock Text="Archived" FontWeight="Bold" Margin="0,12,0,4" />
+                <StackPanel x:Name="ArchivedListPanel" />
+                <TextBlock x:Name="ArchivedEmptyLabel" Text="No archived notes" Foreground="Gray" Margin="0,4,0,4" Visibility="Collapsed" />
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Window>

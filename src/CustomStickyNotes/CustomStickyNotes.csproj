@@ -1,0 +1,28 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>CustomStickyNotes</AssemblyName>
+    <RootNamespace>CustomStickyNotes</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- UseWindowsForms adds these as implicit globals, which collides with the many
+         same-named WPF types (Color, Brushes, Button, MessageBox, Cursors, ...). -->
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="Themes\palette.json" />
+    <Content Include="Themes\palette.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+</Project>
