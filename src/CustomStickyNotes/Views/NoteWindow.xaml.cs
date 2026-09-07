@@ -11,6 +11,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Effects;
+using System.Windows.Threading;
 using CustomStickyNotes.Models;
 using CustomStickyNotes.Services;
 
@@ -20,6 +21,7 @@ public partial class NoteWindow : Window
 {
     private const int WM_MOVING = 0x0216;
     private const int WM_EXITSIZEMOVE = 0x0232;
+    private const string HeartPrefix = "♡ ";
 
     private readonly PaletteService _palette;
     private readonly SnapService _snapService;
@@ -28,6 +30,7 @@ public partial class NoteWindow : Window
     private readonly SnapShadowWindow _shadow = new();
     private Popup _colorPopup = new();
     private bool _suppressChangeEvents;
+    private bool _chromeHover;
 
     public NoteModel Model { get; }
 
@@ -77,22 +80,42 @@ public partial class NoteWindow : Window
 
         PinButton.Opacity = model.IsTopmost ? 1.0 : 0.45;
 
+        ChromePopup.PlacementTarget = RootBorder;
         BuildColorPopup();
 
         RootBorder.MouseEnter += (_, _) => UpdateChromeVisibility();
         RootBorder.MouseLeave += (_, _) => UpdateChromeVisibility();
         Activated += (_, _) => UpdateChromeVisibility();
         Deactivated += (_, _) => UpdateChromeVisibility();
+        LocationChanged += (_, _) => NudgeChromePopup();
         Closed += (_, _) => _shadow.Close();
     }
 
-    /// <summary>Title bar and formatting toolbar are only shown while the note is hovered or focused.</summary>
+    /// <summary>The floating chrome popup is only shown while the note is hovered, focused, or the popup itself is hovered.</summary>
     private void UpdateChromeVisibility()
     {
-        var show = IsActive || RootBorder.IsMouseOver;
-        var visibility = show ? Visibility.Visible : Visibility.Hidden;
-        TitleBarGrid.Visibility = visibility;
-        ToolbarPanel.Visibility = visibility;
+        ChromePopup.IsOpen = IsActive || RootBorder.IsMouseOver || _chromeHover;
+    }
+
+    private void ChromeBorder_MouseEnter(object sender, MouseEventArgs e)
+    {
+        _chromeHover = true;
+        UpdateChromeVisibility();
+    }
+
+    private void ChromeBorder_MouseLeave(object sender, MouseEventArgs e)
+    {
+        _chromeHover = false;
+        UpdateChromeVisibility();
+    }
+
+    /// <summary>WPF popups don't automatically follow their placement target's window while it's being dragged; nudging an offset forces a reposition.</summary>
+    private void NudgeChromePopup()
+    {
+        if (!ChromePopup.IsOpen) return;
+        var offset = ChromePopup.HorizontalOffset;
+        ChromePopup.HorizontalOffset = offset + 1;
+        ChromePopup.HorizontalOffset = offset;
     }
 
     public void PlaceOnMonitor(MonitorRecord monitor, double offsetX, double offsetY, bool temporary)
@@ -210,6 +233,7 @@ public partial class NoteWindow : Window
     {
         var color = (Color)ColorConverter.ConvertFromString(hex);
         RootBorder.Background = new SolidColorBrush(color);
+        ChromeBorder.Background = new SolidColorBrush(color);
         ColorDotBrush.Color = color;
         Model.ColorHex = hex;
     }
@@ -309,16 +333,123 @@ public partial class NoteWindow : Window
         Rtb.Focus();
     }
 
+    /// <summary>
+    /// WPF has no built-in support for a custom bullet glyph, so bullet lists here are native
+    /// <see cref="List"/>/<see cref="ListItem"/> structures with MarkerStyle=None and a literal
+    /// heart-character Run standing in for the marker. Numbered lists remain fully native.
+    /// </summary>
     private void BulletsButton_Click(object sender, RoutedEventArgs e)
     {
+        var currentList = FindAncestor<List>(Rtb.Selection.Start.Paragraph);
+        var isHeartList = currentList != null && currentList.MarkerStyle == TextMarkerStyle.None;
+
+        if (isHeartList)
+        {
+            // Strip our text markers and temporarily restore a real bullet marker style so the
+            // native command recognizes this as a bulleted list and removes it correctly.
+            StripHeartPrefixes(currentList!);
+            currentList!.MarkerStyle = TextMarkerStyle.Disc;
+        }
+
         EditingCommands.ToggleBullets.Execute(null, Rtb);
+
+        if (!isHeartList)
+            ApplyHeartStyleToNewBulletLists();
+
+        UpdateToggleStates();
         Rtb.Focus();
     }
 
     private void NumberingButton_Click(object sender, RoutedEventArgs e)
     {
+        var currentList = FindAncestor<List>(Rtb.Selection.Start.Paragraph);
+        if (currentList != null && currentList.MarkerStyle == TextMarkerStyle.None)
+            StripHeartPrefixes(currentList);
+
         EditingCommands.ToggleNumbering.Execute(null, Rtb);
+
+        UpdateToggleStates();
         Rtb.Focus();
+    }
+
+    /// <summary>Runs after a bullet toggle turns a selection into a (native, Disc-marker) list, swapping in the heart-marker convention.</summary>
+    private void ApplyHeartStyleToNewBulletLists()
+    {
+        // Snapshot before mutating: WPF's TextElement enumerators are invalidated by ANY document
+        // edit, not just structural changes to the collection being walked.
+        var lists = EnumerateLists(Rtb.Document.Blocks).ToList();
+        foreach (var list in lists)
+        {
+            if (list.MarkerStyle != TextMarkerStyle.Disc) continue;
+            list.MarkerStyle = TextMarkerStyle.None;
+            foreach (var item in list.ListItems.ToList())
+                if (item.Blocks.FirstBlock is Paragraph p)
+                    AddHeartPrefixIfMissing(p);
+        }
+    }
+
+    private static void StripHeartPrefixes(List list)
+    {
+        foreach (var item in list.ListItems.ToList())
+        {
+            if (item.Blocks.FirstBlock is Paragraph p && p.Inlines.FirstInline is Run r && r.Text.StartsWith(HeartPrefix))
+                r.Text = r.Text.Substring(HeartPrefix.Length);
+        }
+    }
+
+    private static void AddHeartPrefixIfMissing(Paragraph p)
+    {
+        var first = p.Inlines.FirstInline;
+        if (first is Run r && r.Text.StartsWith(HeartPrefix)) return;
+        if (first == null) p.Inlines.Add(new Run(HeartPrefix));
+        else p.Inlines.InsertBefore(first, new Run(HeartPrefix));
+    }
+
+    private static IEnumerable<List> EnumerateLists(IEnumerable<Block> blocks)
+    {
+        foreach (var block in blocks)
+        {
+            if (block is List list)
+            {
+                yield return list;
+                foreach (var item in list.ListItems)
+                    foreach (var nested in EnumerateLists(item.Blocks))
+                        yield return nested;
+            }
+            else if (block is Section section)
+            {
+                foreach (var nested in EnumerateLists(section.Blocks))
+                    yield return nested;
+            }
+        }
+    }
+
+    /// <summary>Continues the heart-bullet convention onto the new list item created when Enter splits a bulleted paragraph.</summary>
+    private void Rtb_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter)
+            Dispatcher.BeginInvoke(new Action(EnsureHeartPrefixAtCaret), DispatcherPriority.Input);
+    }
+
+    private void EnsureHeartPrefixAtCaret()
+    {
+        var para = Rtb.CaretPosition?.Paragraph;
+        if (para == null) return;
+
+        var list = FindAncestor<List>(para);
+        if (list == null || list.MarkerStyle != TextMarkerStyle.None) return;
+
+        var first = para.Inlines.FirstInline;
+        if (first is Run r && r.Text.StartsWith(HeartPrefix)) return;
+
+        _suppressChangeEvents = true;
+        if (first == null) para.Inlines.Add(new Run(HeartPrefix));
+        else para.Inlines.InsertBefore(first, new Run(HeartPrefix));
+        _suppressChangeEvents = false;
+
+        Rtb.CaretPosition = para.ContentEnd;
+        PersistContent();
+        Changed?.Invoke(this);
     }
 
     private void Rtb_SelectionChanged(object sender, RoutedEventArgs e) => UpdateToggleStates();
@@ -339,7 +470,7 @@ public partial class NoteWindow : Window
         var list = FindAncestor<List>(selection.Start.Paragraph);
         if (list != null)
         {
-            var isBullet = list.MarkerStyle is TextMarkerStyle.Disc or TextMarkerStyle.Circle or TextMarkerStyle.Square or TextMarkerStyle.Box;
+            var isBullet = list.MarkerStyle == TextMarkerStyle.None;
             BulletsButton.IsChecked = isBullet;
             NumberingButton.IsChecked = !isBullet;
         }

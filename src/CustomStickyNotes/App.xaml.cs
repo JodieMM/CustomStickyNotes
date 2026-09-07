@@ -361,7 +361,7 @@ public partial class App : System.Windows.Application
     {
         _trayIcon = new System.Windows.Forms.NotifyIcon
         {
-            Icon = System.Drawing.SystemIcons.Application,
+            Icon = CreateTrayIcon(),
             Visible = true,
             Text = "Custom Sticky Notes",
         };
@@ -398,6 +398,48 @@ public partial class App : System.Windows.Application
         menu.Items.Add("Exit", null, (_, _) => ExitApplication());
 
         _trayIcon.ContextMenuStrip = menu;
+    }
+
+    /// <summary>Draws a simple sticky-note-with-heart glyph at runtime so the app doesn't need a shipped .ico asset.</summary>
+    private static System.Drawing.Icon CreateTrayIcon()
+    {
+        const int size = 32;
+        using var bitmap = new System.Drawing.Bitmap(size, size);
+        using (var g = System.Drawing.Graphics.FromImage(bitmap))
+        {
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
+            g.Clear(System.Drawing.Color.Transparent);
+
+            var noteRect = new System.Drawing.Rectangle(2, 2, size - 4, size - 4);
+            using (var path = RoundedRectPath(noteRect, 6))
+            using (var noteBrush = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(255, 255, 214, 92)))
+            using (var notePen = new System.Drawing.Pen(System.Drawing.Color.FromArgb(90, 0, 0, 0)))
+            {
+                g.FillPath(noteBrush, path);
+                g.DrawPath(notePen, path);
+            }
+
+            using var heartFont = new System.Drawing.Font("Segoe UI Symbol", 16f, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Pixel);
+            using var heartBrush = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(255, 199, 55, 84));
+            const string heart = "♥";
+            var textSize = g.MeasureString(heart, heartFont);
+            g.DrawString(heart, heartFont, heartBrush, (size - textSize.Width) / 2, (size - textSize.Height) / 2 - 1);
+        }
+
+        return System.Drawing.Icon.FromHandle(bitmap.GetHicon());
+    }
+
+    private static System.Drawing.Drawing2D.GraphicsPath RoundedRectPath(System.Drawing.Rectangle rect, int radius)
+    {
+        var diameter = radius * 2;
+        var path = new System.Drawing.Drawing2D.GraphicsPath();
+        path.AddArc(rect.X, rect.Y, diameter, diameter, 180, 90);
+        path.AddArc(rect.Right - diameter, rect.Y, diameter, diameter, 270, 90);
+        path.AddArc(rect.Right - diameter, rect.Bottom - diameter, diameter, diameter, 0, 90);
+        path.AddArc(rect.X, rect.Bottom - diameter, diameter, diameter, 90, 90);
+        path.CloseFigure();
+        return path;
     }
 
     private void ExitApplication()
