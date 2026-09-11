@@ -43,10 +43,10 @@ public partial class App : System.Windows.Application
         var primary = _monitorService.GetPrimary(monitors);
         var occupied = new Dictionary<string, List<Rect>>();
 
-        foreach (var note in _noteStore.Notes.Where(n => !n.IsArchived))
+        foreach (var note in _noteStore.Notes)
         {
             var window = CreateNoteWindow(note, monitors, primary, occupied);
-            if (_settingsStore.Settings.NotesVisible)
+            if (!note.IsArchived && _settingsStore.Settings.NotesVisible)
                 window.Show();
         }
 
@@ -104,8 +104,9 @@ public partial class App : System.Windows.Application
         }
 
         window.PlaceOnMonitor(targetMonitor, offsetX, offsetY, temporary);
-        GetOccupiedList(occupied, targetMonitor.StableId).Add(new Rect(
-            targetMonitor.WorkingArea.X + offsetX, targetMonitor.WorkingArea.Y + offsetY, note.Width, note.Height));
+        if (!note.IsArchived)
+            GetOccupiedList(occupied, targetMonitor.StableId).Add(new Rect(
+                targetMonitor.WorkingArea.X + offsetX, targetMonitor.WorkingArea.Y + offsetY, note.Width, note.Height));
 
         _noteWindows[note.Id] = window;
         return window;
@@ -413,7 +414,7 @@ public partial class App : System.Windows.Application
 
             var noteRect = new System.Drawing.Rectangle(2, 2, size - 4, size - 4);
             using (var path = RoundedRectPath(noteRect, 6))
-            using (var noteBrush = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(255, 255, 214, 92)))
+            using (var noteBrush = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(255, 255, 255, 255)))
             using (var notePen = new System.Drawing.Pen(System.Drawing.Color.FromArgb(90, 0, 0, 0)))
             {
                 g.FillPath(noteBrush, path);
@@ -421,7 +422,7 @@ public partial class App : System.Windows.Application
             }
 
             using var heartFont = new System.Drawing.Font("Segoe UI Symbol", 16f, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Pixel);
-            using var heartBrush = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(255, 199, 55, 84));
+            using var heartBrush = new System.Drawing.SolidBrush(System.Drawing.Color.FromArgb(255, 217, 169, 207));
             const string heart = "♥";
             var textSize = g.MeasureString(heart, heartFont);
             g.DrawString(heart, heartFont, heartBrush, (size - textSize.Width) / 2, (size - textSize.Height) / 2 - 1);

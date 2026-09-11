@@ -96,6 +96,9 @@
                          TextChanged="Rtb_TextChanged"
                          PreviewKeyDown="Rtb_PreviewKeyDown">
                 <RichTextBox.Resources>
+                    <Style TargetType="{x:Type sys:Paragraph}">
+                        <Setter Property="Margin" Value="0" />
+                    </Style>
                     <Style TargetType="{x:Type sys:List}">
                         <Setter Property="Margin" Value="0" />
                         <Setter Property="Padding" Value="10,0,0,0" />

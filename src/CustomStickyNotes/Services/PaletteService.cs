@@ -27,11 +27,12 @@ public class PaletteService
 
     private static List<PaletteColor> DefaultPalette() => new()
     {
-        new PaletteColor { Name = "Blush Pink", Hex = "#F7D6E0" },
-        new PaletteColor { Name = "Lavender", Hex = "#E3D9F7" },
-        new PaletteColor { Name = "Mint", Hex = "#D6F0E0" },
-        new PaletteColor { Name = "Peach", Hex = "#FBE3D0" },
-        new PaletteColor { Name = "Sky Blue", Hex = "#D6EAF7" },
-        new PaletteColor { Name = "Cream", Hex = "#FFF6E5" },
+        new PaletteColor { Name = "Periwinkle", Hex = "#ADC8F5" },
+        new PaletteColor { Name = "Cornflower", Hex = "#8EA8E2" },
+        new PaletteColor { Name = "Iris", Hex = "#8A96D0" },
+        new PaletteColor { Name = "Thistle", Hex = "#9A93C6" },
+        new PaletteColor { Name = "Lilac", Hex = "#C2ADD9" },
+        new PaletteColor { Name = "Orchid", Hex = "#BE93C6" },
+        new PaletteColor { Name = "Mauve Pink", Hex = "#D9A9CF" },
     };
 }

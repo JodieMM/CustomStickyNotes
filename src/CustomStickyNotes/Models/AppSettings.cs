@@ -20,5 +20,5 @@ public class AppSettings
 
     public bool NotesVisible { get; set; } = true;
 
-    public string DefaultColorHex { get; set; } = "#FFF6E5";
+    public string DefaultColorHex { get; set; } = "#9A93C6";
 }
